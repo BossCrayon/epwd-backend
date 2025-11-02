@@ -43,9 +43,36 @@ function extractSilayIdDetails(rawText = "") {
   const idPattern = /\b\d{13}\b/;
   const match = rawText.match(idPattern);
   if (match) id = match[0];
+
+  // --- Name extraction ---
+  let firstName = "", middleName = "", lastName = "";
+  const lines = rawText.split("\n").map(l => l.trim());
+  for (const line of lines) {
+    if (/^(?:FIRST\s*NAME|GIVEN\s*NAME|UNANG\s*PANGALAN)\s*[:\-]?\s*(.+)$/i.test(line)) {
+      firstName = RegExp.$1.trim();
+    }
+    if (/^(?:MIDDLE\s*NAME|GITNANG\s*PANGALAN|M\.?\s*I\.?)\s*[:\-]?\s*(.+)$/i.test(line)) {
+      middleName = RegExp.$1.trim();
+    }
+    if (/^(?:LAST\s*NAME|SURNAME|APELYIDO)\s*[:\-]?\s*(.+)$/i.test(line)) {
+      lastName = RegExp.$1.trim();
+    }
+    if (/^(?:NAME|PANGALAN)\s*[:\-]?\s*(.+)$/i.test(line) && !firstName && !lastName) {
+      const parts = RegExp.$1.trim().split(/\s+/);
+      if (parts.length >= 2) {
+        firstName = parts[0];
+        lastName = parts[parts.length - 1];
+        if (parts.length === 3) middleName = parts[1];
+      }
+    }
+  }
+
   return {
     isSilay,
     id,
+    firstName,
+    middleName,
+    lastName,
     message: isSilay
       ? id
         ? `Found Silay ID ${id}`
@@ -53,6 +80,7 @@ function extractSilayIdDetails(rawText = "") {
       : "Not a Silay City PWD ID.",
   };
 }
+
 
 // --- OCR + Firestore Lookup ---
 app.post("/api/scan", async (req, res) => {
