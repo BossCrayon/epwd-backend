@@ -1,23 +1,20 @@
 // server.js
-import express from "express";
-import fetch from "node-fetch";
-import FormData from "form-data";
-import admin from "firebase-admin";
-import dotenv from "dotenv";
-dotenv.config();
+    import express from "express";
+    import fetch from "node-fetch";
+    import FormData from "form-data";
+    import admin from "firebase-admin";
+    import dotenv from "dotenv";
+    dotenv.config();
 
-const app = express();
-app.use(express.json({ limit: "10mb" })); // handle base64 image payloads
+    if (!admin.apps.length) {
+    admin.initializeApp({
+        credential: admin.credential.cert(
+        JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT)
+        ),
+    });
+    }
+    const db = admin.firestore();
 
-// --- INITIALIZE FIREBASE ADMIN ---
-if (!admin.apps.length) {
-  admin.initializeApp({
-    credential: admin.credential.cert(
-      JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT)
-    ),
-  });
-}
-const db = admin.firestore();
 
 // --- ENV KEYS (from .env / Render) ---
 const OCR_API_KEY = process.env.OCR_API_KEY;
