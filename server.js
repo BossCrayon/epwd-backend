@@ -6,11 +6,21 @@ import admin from "firebase-admin";
 import dotenv from "dotenv";
 dotenv.config();
 
-// ✅ initialize express BEFORE using app.post
+// ✅ Initialize express before routes
 const app = express();
-app.use(express.json({ limit: "10mb" })); // handle base64 JSON images
+app.use(express.json({ limit: "20mb" })); // allow larger JSON base64 payloads
 
-// ✅ initialize Firebase
+// Optional: add CORS (safe if ever tested on web)
+import cors from "cors";
+app.use(cors());
+
+// ✅ Warm-up route
+app.get("/", (req, res) => {
+  console.log("🔹 GET / - Backend is alive");
+  res.send("EPWD Backend Active ✅");
+});
+
+// ✅ Initialize Firebase
 if (!admin.apps.length) {
   admin.initializeApp({
     credential: admin.credential.cert(
@@ -46,16 +56,21 @@ function extractSilayIdDetails(rawText = "") {
 
 // --- OCR + Firestore Lookup ---
 app.post("/api/scan", async (req, res) => {
+  console.log("📩 Received /api/scan request");
   try {
     const { base64Image } = req.body;
+    console.log("🧾 Body size:", base64Image ? base64Image.length : "No image");
+
     if (!base64Image)
       return res.status(400).json({ error: "Missing image data" });
 
+    // OCR API call
     const form = new FormData();
     form.append("apikey", OCR_API_KEY);
     form.append("OCREngine", "2");
     form.append("base64Image", `data:image/jpeg;base64,${base64Image}`);
 
+    console.log("🔍 Sending image to OCR.Space...");
     const ocrRes = await fetch("https://api.ocr.space/parse/image", {
       method: "POST",
       body: form,
@@ -71,6 +86,7 @@ app.post("/api/scan", async (req, res) => {
     if (!idDetails.isSilay)
       return res.status(400).json({ message: idDetails.message });
 
+    console.log("🔎 Querying Firestore for:", idDetails.id);
     const snapshot = await db
       .collection("EPWD")
       .where("PWD_ID_NO", "==", idDetails.id)
@@ -81,19 +97,22 @@ app.post("/api/scan", async (req, res) => {
 
     const member = snapshot.docs[0].data();
 
+    console.log("✅ Match found:", member.FirstName, member.LastName);
+
     res.json({
       idDetails,
       member,
       message: "Record found and verified.",
     });
   } catch (err) {
-    console.error("Scan API error:", err);
+    console.error("❌ Scan API error:", err);
     res.status(500).json({ error: err.message });
   }
 });
 
 // --- Face Verification ---
 app.post("/api/face-verify", async (req, res) => {
+  console.log("📩 Received /api/face-verify request");
   try {
     const { selfieBase64, profileBase64 } = req.body;
     if (!selfieBase64 || !profileBase64)
@@ -119,13 +138,13 @@ app.post("/api/face-verify", async (req, res) => {
       thresholds: data.thresholds,
     });
   } catch (err) {
-    console.error("Face Verify API error:", err);
+    console.error("❌ Face Verify API error:", err);
     res.status(500).json({ error: err.message });
   }
 });
 
 // --- Start Server ---
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () =>
-  console.log(`✅ Server running on http://localhost:${PORT}`)
-);
+app.listen(PORT, () => {
+  console.log(`✅ Server running on http://localhost:${PORT}`);
+});
