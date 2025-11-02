@@ -1,27 +1,31 @@
 // server.js
-    import express from "express";
-    import fetch from "node-fetch";
-    import FormData from "form-data";
-    import admin from "firebase-admin";
-    import dotenv from "dotenv";
-    dotenv.config();
+import express from "express";
+import fetch from "node-fetch";
+import FormData from "form-data";
+import admin from "firebase-admin";
+import dotenv from "dotenv";
+dotenv.config();
 
-    if (!admin.apps.length) {
-    admin.initializeApp({
-        credential: admin.credential.cert(
-        JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT)
-        ),
-    });
-    }
-    const db = admin.firestore();
+// ✅ initialize express BEFORE using app.post
+const app = express();
+app.use(express.json({ limit: "10mb" })); // handle base64 JSON images
 
+// ✅ initialize Firebase
+if (!admin.apps.length) {
+  admin.initializeApp({
+    credential: admin.credential.cert(
+      JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT)
+    ),
+  });
+}
+const db = admin.firestore();
 
-// --- ENV KEYS (from .env / Render) ---
+// --- ENV KEYS ---
 const OCR_API_KEY = process.env.OCR_API_KEY;
 const FACE_API_KEY = process.env.FACE_API_KEY;
 const FACE_API_SECRET = process.env.FACE_API_SECRET;
 
-// --- HELPER: Extract Silay ID from text ---
+// --- HELPER ---
 function extractSilayIdDetails(rawText = "") {
   const textLower = rawText.toLowerCase();
   const isSilay = textLower.includes("silay");
@@ -40,14 +44,13 @@ function extractSilayIdDetails(rawText = "") {
   };
 }
 
-// --- OCR + Database Lookup Endpoint ---
+// --- OCR + Firestore Lookup ---
 app.post("/api/scan", async (req, res) => {
   try {
     const { base64Image } = req.body;
     if (!base64Image)
       return res.status(400).json({ error: "Missing image data" });
 
-    // Step 1: OCR call
     const form = new FormData();
     form.append("apikey", OCR_API_KEY);
     form.append("OCREngine", "2");
@@ -68,7 +71,6 @@ app.post("/api/scan", async (req, res) => {
     if (!idDetails.isSilay)
       return res.status(400).json({ message: idDetails.message });
 
-    // Step 2: Firestore Lookup
     const snapshot = await db
       .collection("EPWD")
       .where("PWD_ID_NO", "==", idDetails.id)
@@ -90,7 +92,7 @@ app.post("/api/scan", async (req, res) => {
   }
 });
 
-// --- Face Verification Endpoint (Optional) ---
+// --- Face Verification ---
 app.post("/api/face-verify", async (req, res) => {
   try {
     const { selfieBase64, profileBase64 } = req.body;
