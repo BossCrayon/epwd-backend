@@ -92,8 +92,15 @@ app.post("/api/scan", async (req, res) => {
       .where("PWD_ID_NO", "==", idDetails.id)
       .get();
 
-    if (snapshot.empty)
-      return res.status(404).json({ message: "PWD record not found." });
+    if (snapshot.empty) {
+  console.log("⚠️ No matching Firestore record found, returning OCR data only.");
+
+  return res.status(404).json({
+    message: "PWD record not found.",
+    idDetails, // include extracted ID and name info
+  });
+}
+
 
     const member = snapshot.docs[0].data();
 
