@@ -121,13 +121,13 @@ app.post("/api/scan", async (req, res) => {
       .get();
 
     if (snapshot.empty) {
-  console.log("⚠️ No matching Firestore record found, returning OCR data only.");
+      console.log("⚠️ No matching Firestore record found, returning OCR data only.");
 
-  return res.status(404).json({
-    message: "PWD record not found.",
-    idDetails, // include extracted ID and name info
-  });
-}
+      return res.status(404).json({
+        message: "PWD record not found.",
+        idDetails, // include extracted ID and name info
+      });
+    }
 
 
     const member = snapshot.docs[0].data();
@@ -176,6 +176,47 @@ app.post("/api/face-verify", async (req, res) => {
     console.error("❌ Face Verify API error:", err);
     res.status(500).json({ error: err.message });
   }
+});
+
+// ⭐️ NEW ROUTE: Proxy for Expo Push Notifications ⭐️
+app.post('/api/notify', async (req, res) => {
+    console.log("📩 Received /api/notify request");
+    try {
+        const { to, title, body, data } = req.body;
+
+        // Basic Validation
+        if (!to) {
+            return res.status(400).json({ error: "Missing 'to' token" });
+        }
+
+        console.log(`📨 Sending notification to: ${to}`);
+
+        // Forward the request to Expo's servers
+        const response = await fetch('https://exp.host/--/api/v2/push/send', {
+            method: 'POST',
+            headers: {
+                'Accept': 'application/json',
+                'Accept-encoding': 'gzip, deflate',
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                to: to,
+                sound: 'default',
+                title: title || "New Notification",
+                body: body || "You have a new update.",
+                data: data || {}
+            }),
+        });
+
+        const result = await response.json();
+        console.log("✅ Expo Response:", result);
+        
+        res.json(result);
+
+    } catch (error) {
+        console.error("❌ Notification Proxy Error:", error);
+        res.status(500).json({ error: "Failed to send notification" });
+    }
 });
 
 // --- Start Server ---
